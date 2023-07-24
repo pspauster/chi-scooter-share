@@ -1,0 +1,117 @@
+---
+title: "analysis"
+author: "Patrick"
+date: "2023-07-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(RSocrata)
+library(tigris)
+library(sf)
+library(leaflet)
+```
+
+
+```{r}
+scooter_trips <- read.socrata("https://data.cityofchicago.org/resource/2i5w-ykuw.csv")
+
+scooter_trips_tract <- read.socrata("https://data.cityofchicago.org/resource/cini-k95q.csv")
+
+equity_priority_area <- read.socrata("https://data.cityofchicago.org/resource/99tm-6k6i.csv") %>% 
+  st_as_sf(wkt = "polygon")
+```
+
+Number of scooter trips over time
+```{r}
+
+scooter_trips_clean <- scooter_trips %>% 
+  mutate(date = floor_date(start_time, "month"))
+
+scooter_trips_sum <- scooter_trips_clean %>% 
+  group_by(date) %>% 
+  summarize(trips = n())
+
+
+```
+
+```{r}
+ggplot(scooter_trips_sum)+
+  geom_line(mapping = aes(x = as.Date(date), y = trips))+
+  scale_x_date(date_labels = "%m-%Y")+
+  scale_y_continuous(label = scales::comma)
+```
+
+average distance and average trip duration
+
+```{r}
+
+```
+
+
+
+census data
+```{r}
+
+tracts_sf <- tracts(
+  state = "IL",
+  county = "Cook",
+  cb = T
+)
+
+
+```
+
+```{r}
+
+scooter_trips_tract_sf <- scooter_trips_tract %>% 
+  mutate(GEOID = as.character(start_census_tract)) %>% 
+  left_join(tracts_sf, by = "GEOID") %>% 
+  st_as_sf()
+
+scooter_tract_sum <- scooter_trips_tract_sf %>% 
+  group_by(GEOID) %>% 
+  summarize(trips = sum(trip_count, na.rm = T)) %>% 
+  filter(!is.na(GEOID))
+```
+
+
+Map of scooter trips
+```{r}
+ggplot(scooter_tract_sum)+
+  geom_sf(mapping = aes(fill = trips))
+
+#mapview::mapview(scooter_tract_sum)
+
+pal <- colorNumeric(
+  palette = "Greens",
+  domain = scooter_tract_sum$trips)
+
+leaflet(scooter_tract_sum) %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addPolygons(
+              color = ~pal(trips),
+              opacity = 0.9,
+              weight = 0.5
+                       ) %>% 
+  addPolygons(data = equity_priority_area,
+              color = "red") %>% 
+  addLegend("bottomright", pal = pal, values = ~trips,
+    title = "Rides 5/2022=12/2022",
+    opacity = 1
+  )
+```
+
+```{r}
+
+scooter_trips_sf <- scooter_trips %>% 
+  filter(!is.na(start_centroid_longitude)) %>% 
+  st_as_sf(coords = c("start_centroid_longitude", "start_centroid_latitude"), remove = F)
+
+scooter_trips_equity <- scooter_trips_sf %>% 
+  mutate(equity_zone = st_intersects(.,equity_priority_area))
+```
+
