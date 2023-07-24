@@ -22,7 +22,8 @@ scooter_trips <- read.socrata("https://data.cityofchicago.org/resource/2i5w-ykuw
 scooter_trips_tract <- read.socrata("https://data.cityofchicago.org/resource/cini-k95q.csv")
 
 equity_priority_area <- read.socrata("https://data.cityofchicago.org/resource/99tm-6k6i.csv") %>% 
-  st_as_sf(wkt = "polygon")
+  st_as_sf(wkt = "polygon") %>% 
+  st_union()
 ```
 
 Number of scooter trips over time
@@ -92,19 +93,19 @@ pal <- colorNumeric(
 
 leaflet(scooter_tract_sum) %>% 
   addProviderTiles(provider = "CartoDB.Positron") %>% 
-  addPolygons(
-              color = ~pal(trips),
+  addPolygons(color = ~pal(trips),
               opacity = 0.9,
-              weight = 0.5
-                       ) %>% 
+              weight = 0.5) %>% 
   addPolygons(data = equity_priority_area,
-              color = "red") %>% 
+              color = "red",
+              weight = 0.5) %>% 
   addLegend("bottomright", pal = pal, values = ~trips,
     title = "Rides 5/2022=12/2022",
     opacity = 1
   )
 ```
 
+Just 18% of rides in the equity zones
 ```{r}
 
 scooter_trips_sf <- scooter_trips %>% 
@@ -112,6 +113,10 @@ scooter_trips_sf <- scooter_trips %>%
   st_as_sf(coords = c("start_centroid_longitude", "start_centroid_latitude"), remove = F)
 
 scooter_trips_equity <- scooter_trips_sf %>% 
-  mutate(equity_zone = st_intersects(.,equity_priority_area))
+  mutate(equity_zone = lengths(st_intersects(.,equity_priority_area)))
+
+count(scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>% 
+  janitor::adorn_percentages("col")
+
 ```
 
