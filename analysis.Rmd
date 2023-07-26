@@ -100,7 +100,7 @@ leaflet(scooter_tract_sum) %>%
               color = "red",
               weight = 0.5) %>% 
   addLegend("bottomright", pal = pal, values = ~trips,
-    title = "Rides 5/2022=12/2022",
+    title = "Rides 5/2022-12/2022",
     opacity = 1
   )
 ```
