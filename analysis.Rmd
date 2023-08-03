@@ -91,18 +91,23 @@ pal <- colorNumeric(
   palette = "Greens",
   domain = scooter_tract_sum$trips)
 
-leaflet(scooter_tract_sum) %>% 
+map <- leaflet(scooter_tract_sum) %>% 
   addProviderTiles(provider = "CartoDB.Positron") %>% 
   addPolygons(color = ~pal(trips),
               opacity = 0.9,
               weight = 0.5) %>% 
   addPolygons(data = equity_priority_area,
               color = "red",
-              weight = 0.5) %>% 
+              weight = 0.5,
+              opacity = 0.5) %>% 
   addLegend("bottomright", pal = pal, values = ~trips,
     title = "Rides 5/2022-12/2022",
     opacity = 1
   )
+
+map
+
+mapview::mapshot(map, "map.html")
 ```
 
 Just 18% of rides in the equity zones
@@ -119,6 +124,7 @@ count(scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>%
   janitor::adorn_percentages("col")
 
 ```
+
 
 Differences in vendors?
 Are some scooters higher quality because they are not distributed evenly between neighborhoods?
