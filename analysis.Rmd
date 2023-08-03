@@ -120,3 +120,26 @@ count(scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>%
 
 ```
 
+Differences in vendors?
+Are some scooters higher quality because they are not distributed evenly between neighborhoods?
+```{r}
+
+count(scooter_trips_equity %>% as.data.frame() %>% group_by(vendor), equity_zone) %>% 
+  pivot_wider(names_from = "vendor", values_from = "n") %>% 
+  janitor::adorn_percentages("col")
+
+```
+trips but desitnation
+```{r}
+
+end_scooter_trips_sf <- scooter_trips %>% 
+  filter(!is.na(end_centroid_longitude)) %>% 
+  st_as_sf(coords = c("end_centroid_longitude", "end_centroid_latitude"), remove = F)
+
+end_scooter_trips_equity <- end_scooter_trips_sf %>% 
+  mutate(equity_zone = lengths(st_intersects(.,equity_priority_area)))
+
+count(end_scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>% 
+  janitor::adorn_percentages("col")
+
+```
