@@ -13,6 +13,8 @@ library(RSocrata)
 library(tigris)
 library(sf)
 library(leaflet)
+library(htmltools)
+
 ```
 
 
@@ -87,6 +89,26 @@ ggplot(scooter_tract_sum)+
 
 #mapview::mapview(scooter_tract_sum)
 
+tag.map.title <- tags$style(HTML("
+  .leaflet-control.map-title {
+    position: fixed !important;
+    padding: 10px;
+    background: rgba(255,255,255,0.8);
+    color: black;
+    border-radius: 5px;
+  }
+  .title {
+    padding: 0px;
+    margin: 0px;
+    font-size: 20px;
+    margin-block: 0px;
+    font-weight: 800;
+  }"))
+
+title <- tags$div(
+  tag.map.title, HTML("<p class = 'title'>The huge majority of E-Scooter Rides don't happen in the Equity Zone</p>")
+)  
+
 pal <- colorNumeric(
   palette = "Greens",
   domain = scooter_tract_sum$trips)
@@ -99,11 +121,16 @@ map <- leaflet(scooter_tract_sum) %>%
   addPolygons(data = equity_priority_area,
               color = "red",
               weight = 0.5,
-              opacity = 0.5) %>% 
+              opacity = 0.5,
+              layerId = "equity") %>% 
   addLegend("bottomright", pal = pal, values = ~trips,
     title = "Rides 5/2022-12/2022",
     opacity = 1
-  )
+  ) %>% 
+  addLegend("topright", group = "equity", colors = "red", labels = "equity zone") %>% 
+  addControl(title,
+             className = "map-title",
+             position = "topleft")
 
 map
 
@@ -149,3 +176,11 @@ count(end_scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>%
   janitor::adorn_percentages("col")
 
 ```
+
+```{r}
+twenty20 <- 540035/122
+twenty19 <- 664975/122
+program <- 6300
+
+```
+
