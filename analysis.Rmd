@@ -14,6 +14,8 @@ library(tigris)
 library(sf)
 library(leaflet)
 library(htmltools)
+library(gt)
+library(janitor)
 
 ```
 
@@ -47,13 +49,6 @@ ggplot(scooter_trips_sum)+
   scale_x_date(date_labels = "%m-%Y")+
   scale_y_continuous(label = scales::comma)
 ```
-
-average distance and average trip duration
-
-```{r}
-
-```
-
 
 
 census data
@@ -147,9 +142,9 @@ scooter_trips_sf <- scooter_trips %>%
 scooter_trips_equity <- scooter_trips_sf %>% 
   mutate(equity_zone = lengths(st_intersects(.,equity_priority_area)))
 
-count(scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>% 
-  janitor::adorn_percentages("col")
-
+scooter_trips_equity %>% as.data.frame() %>% 
+  group_by(equity_zone == 1, vendor == "Lyft") %>% 
+  summarize(n = n())
 ```
 
 
@@ -158,10 +153,34 @@ Are some scooters higher quality because they are not distributed evenly between
 ```{r}
 
 count(scooter_trips_equity %>% as.data.frame() %>% group_by(vendor), equity_zone) %>% 
-  pivot_wider(names_from = "vendor", values_from = "n") %>% 
-  janitor::adorn_percentages("col")
+  pivot_wider(names_from = "equity_zone", values_from = "n") %>% 
+  adorn_totals("col") %>% 
+  mutate(percent_equity_zone = scales::percent(`1`/(`0`+`1`)))
+  
 
 ```
+Lyft only
+```{r}
+lyft_only <- scooter_trips_equity %>%
+  filter(vendor == "Lyft") %>% 
+  group_by(start_centroid_latitude, start_centroid_longitude) %>% 
+  summarize(count = n()) %>% 
+  arrange(count)
+
+divvy_stations <- read.socrata("https://data.cityofchicago.org/resource/bk89-9dk7.json") %>% 
+  st_as_sf(coords = c("location.longitude", "location.latitude"))
+
+leaflet(lyft_only) %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>% 
+  addCircleMarkers(color = "pink",
+              fillOpacity = 0.9,
+              radius = ~sqrt(count)/10) %>% 
+  addMarkers(lng = lyft_only$start_centroid_longitude,
+             lat = lyft_only$start_centroid_latitude)
+```
+
+
+
 trips but desitnation
 ```{r}
 
