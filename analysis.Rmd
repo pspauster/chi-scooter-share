@@ -62,6 +62,20 @@ tracts_sf <- tracts(
 
 
 ```
+Just 18% of rides in the equity zones
+```{r}
+
+scooter_trips_sf <- scooter_trips %>% 
+  filter(!is.na(start_centroid_longitude)) %>% 
+  st_as_sf(coords = c("start_centroid_longitude", "start_centroid_latitude"), remove = F)
+
+scooter_trips_equity <- scooter_trips_sf %>% 
+  mutate(equity_zone = lengths(st_intersects(.,equity_priority_area)))
+
+scooter_trips_equity %>% as.data.frame() %>% 
+  group_by(equity_zone == 1, vendor == "Lyft") %>% 
+  summarize(n = n())
+```
 
 ```{r}
 
@@ -74,7 +88,15 @@ scooter_tract_sum <- scooter_trips_tract_sf %>%
   group_by(GEOID) %>% 
   summarize(trips = sum(trip_count, na.rm = T)) %>% 
   filter(!is.na(GEOID))
+
+scooter_tract_nolyft <- scooter_trips_sf %>% 
+  filter(vendor != "Lyft") %>% 
+  st_intersection(scooter_trips_tract_sf) %>% 
+  group_by(GEOID) %>% 
+  summarize(no_lyft_rides = n())
+
 ```
+
 
 
 Map of scooter trips
@@ -108,9 +130,17 @@ pal <- colorNumeric(
   palette = "Greens",
   domain = scooter_tract_sum$trips)
 
+no_lyft_pal <- colorNumeric(
+  palette = "Greens",
+  domain = scooter_tract_sum$trips)
+
 map <- leaflet(scooter_tract_sum) %>% 
   addProviderTiles(provider = "CartoDB.Positron") %>% 
   addPolygons(color = ~pal(trips),
+              opacity = 0.9,
+              weight = 0.5) %>% 
+  addPolygons(data = no_lyft,
+              color = ~no_lyft_pal,
               opacity = 0.9,
               weight = 0.5) %>% 
   addPolygons(data = equity_priority_area,
@@ -132,20 +162,7 @@ map
 mapview::mapshot(map, "map.html")
 ```
 
-Just 18% of rides in the equity zones
-```{r}
 
-scooter_trips_sf <- scooter_trips %>% 
-  filter(!is.na(start_centroid_longitude)) %>% 
-  st_as_sf(coords = c("start_centroid_longitude", "start_centroid_latitude"), remove = F)
-
-scooter_trips_equity <- scooter_trips_sf %>% 
-  mutate(equity_zone = lengths(st_intersects(.,equity_priority_area)))
-
-scooter_trips_equity %>% as.data.frame() %>% 
-  group_by(equity_zone == 1, vendor == "Lyft") %>% 
-  summarize(n = n())
-```
 
 
 Differences in vendors?
@@ -157,7 +174,9 @@ count(scooter_trips_equity %>% as.data.frame() %>% group_by(vendor), equity_zone
   adorn_totals("col") %>% 
   mutate(percent_equity_zone = scales::percent(`1`/(`0`+`1`)))
   
-
+count(scooter_trips_clean, vendor) %>% 
+  adorn_totals() %>% 
+  adorn_percentages("col")
 ```
 Lyft only
 ```{r}
