@@ -150,7 +150,7 @@ tag.map.title <- tags$style(HTML("
 "))
 
 title <- tags$div(
-  tag.map.title, HTML("<img src = https://patrickspauster.com/images/streetsblog-logo.png><p class = 'title'>Chicago's E-Scooter Rides</p><p>Rides From May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
+  tag.map.title, HTML("<img src = https://patrickspauster.com/images/streetsblog-logo.png><p class = 'title'>Chicago's E-Scooter Rides</p><p>Rides from May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
 )   
 
 #add subtitle for the dates
@@ -178,16 +178,16 @@ map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FAL
               weight = 0.5,
               opacity = 0.5) %>% 
   addLegend("bottomright", pal = pal, values = ~rides,
-    title = "Total Rides",
+    title = "Total",
     opacity = 1,
     group = "Total"
   ) %>% 
   addLegend("bottomright", pal = no_lyft_pal, values = ~no_lyft_rides,
-    title = "Dockless Rides",
+    title = "Dockless",
     opacity = 1,
     group = "Dockless"
   ) %>% 
-  addLegend("bottomleft", colors = "red", labels = "equity zone") %>% 
+  #addLegend("bottomleft", colors = "red", labels = "equity zone") %>% 
   addControl(title,
              className = "map-title",
              position = "topleft") %>% 
@@ -277,8 +277,6 @@ leaflet(lyft_only) %>%
   addMarkers(lng = lyft_only$start_centroid_longitude,
              lat = lyft_only$start_centroid_latitude)
 ```
-
-
 
 trips but desitnation
 ```{r}
