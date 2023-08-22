@@ -16,6 +16,7 @@ library(leaflet)
 library(htmltools)
 library(gt)
 library(janitor)
+library(lubridate)
 
 ```
 
@@ -28,6 +29,9 @@ scooter_trips_tract <- read.socrata("https://data.cityofchicago.org/resource/cin
 equity_priority_area <- read.socrata("https://data.cityofchicago.org/resource/99tm-6k6i.csv") %>% 
   st_as_sf(wkt = "polygon") %>% 
   st_union()
+
+community_areas <- read.socrata("https://data.cityofchicago.org/resource/igwz-8jzy.csv") %>% 
+  st_as_sf(wkt = "the_geom")
 ```
 
 Number of scooter trips over time
@@ -82,28 +86,31 @@ scooter_trips_equity %>% as.data.frame() %>%
 scooter_trips_tract_sf <- scooter_trips_tract %>% 
   mutate(GEOID = as.character(start_census_tract)) %>% 
   left_join(tracts_sf, by = "GEOID") %>% 
-  st_as_sf()
+  st_as_sf() %>% 
+  st_set_crs(st_crs(scooter_trips_sf))
 
 scooter_tract_sum <- scooter_trips_tract_sf %>% 
   group_by(GEOID) %>% 
   summarize(trips = sum(trip_count, na.rm = T)) %>% 
   filter(!is.na(GEOID))
 
-scooter_tract_nolyft <- scooter_trips_sf %>% 
-  filter(vendor != "Lyft") %>% 
-  st_intersection(scooter_trips_tract_sf) %>% 
-  group_by(GEOID) %>% 
-  summarize(no_lyft_rides = n())
+scooter_communityarea <- community_areas %>% 
+  left_join(scooter_trips, by = c("area_num_1" = "start_community_area_number")) %>% 
+  #filter(vendor != "Lyft") %>% 
+  group_by(community) %>% 
+  summarize(rides = n(),
+            no_lyft_rides = sum(vendor != "Lyft"))
 
 ```
 
+```{r}
+ggplot(scooter_tract_sum)+
+  geom_sf(mapping = aes(fill = trips))
+```
 
 
 Map of scooter trips
 ```{r}
-ggplot(scooter_tract_sum)+
-  geom_sf(mapping = aes(fill = trips))
-
 #mapview::mapview(scooter_tract_sum)
 
 tag.map.title <- tags$style(HTML("
@@ -120,42 +127,115 @@ tag.map.title <- tags$style(HTML("
     font-size: 20px;
     margin-block: 0px;
     font-weight: 800;
-  }"))
+  }
+  span {
+    font-weight: 800;
+    color: green;
+  }
+  p {
+    font-size: 15px;
+    margin: 0px;
+    padding: 10px;
+    margin-block: 0px;
+  }
+  img {
+  max-width: 428px
+  }
+  @media (max-width:475px) {
+  img {max-width:280px}
+  .title {font-size: 13px}
+  p {font-size: 9px}
+  }
+  
+"))
 
 title <- tags$div(
-  tag.map.title, HTML("<p class = 'title'>The huge majority of E-Scooter Rides don't happen in the Equity Zone</p>")
-)  
+  tag.map.title, HTML("<img src = https://patrickspauster.com/images/streetsblog-logo.png><p class = 'title'>Chicago's E-Scooter Rides</p><p>Rides From May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
+)   
+
+#add subtitle for the dates
 
 pal <- colorNumeric(
   palette = "Greens",
-  domain = scooter_tract_sum$trips)
+  domain = scooter_communityarea$rides)
 
 no_lyft_pal <- colorNumeric(
   palette = "Greens",
-  domain = scooter_tract_sum$trips)
+  domain = scooter_communityarea$no_lyft_rides)
 
-map <- leaflet(scooter_tract_sum) %>% 
+map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FALSE)) %>% 
   addProviderTiles(provider = "CartoDB.Positron") %>% 
-  addPolygons(color = ~pal(trips),
+  addPolygons(color = ~pal(rides),
               opacity = 0.9,
-              weight = 0.5) %>% 
-  addPolygons(data = no_lyft,
-              color = ~no_lyft_pal,
+              weight = 0.5,
+              group = "Total") %>% 
+  addPolygons(color = ~no_lyft_pal(no_lyft_rides),
               opacity = 0.9,
-              weight = 0.5) %>% 
+              weight = 0.5,
+              group = "Dockless") %>% 
   addPolygons(data = equity_priority_area,
               color = "red",
               weight = 0.5,
-              opacity = 0.5,
-              layerId = "equity") %>% 
-  addLegend("bottomright", pal = pal, values = ~trips,
-    title = "Rides 5/2022-12/2022",
-    opacity = 1
+              opacity = 0.5) %>% 
+  addLegend("bottomright", pal = pal, values = ~rides,
+    title = "Total Rides",
+    opacity = 1,
+    group = "Total"
   ) %>% 
-  addLegend("topright", group = "equity", colors = "red", labels = "equity zone") %>% 
+  addLegend("bottomright", pal = no_lyft_pal, values = ~no_lyft_rides,
+    title = "Dockless Rides",
+    opacity = 1,
+    group = "Dockless"
+  ) %>% 
+  addLegend("bottomleft", colors = "red", labels = "equity zone") %>% 
   addControl(title,
              className = "map-title",
-             position = "topleft")
+             position = "topleft") %>% 
+  addLayersControl(
+    baseGroups = c("Total", "Dockless"),
+    options = layersControlOptions(collapsed = F)
+  ) %>% 
+  htmlwidgets::onRender("function(el, x) {
+        L.control.zoom({ position: 'bottomleft' }).addTo(this)
+    }")%>%
+  htmlwidgets::onRender("
+    function(el, x) {
+      var updateLegend = function () {
+          var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1);
+
+          document.querySelectorAll('.legend').forEach(a => a.hidden=true);
+          document.querySelectorAll('.legend').forEach(l => {
+            if (l.children[0].children[0].innerText == selectedGroup) l.hidden=false;
+          });
+      };
+      updateLegend();
+      this.on('baselayerchange', e => updateLegend());
+     }")
+    # %>% 
+    # htmlwidgets::onRender("
+    # function(el, x) {
+    #   var initialLegend = 'total' // Set the initial legend to be displayed by layerId
+    #   var myMap = this;
+    #   for (var legend in myMap.controls._controlsById) {
+    #     var el = myMap.controls.get(legend.toString())._container;
+    #     if(legend.toString() === initialLegend) {
+    #       el.style.display = 'block';
+    #     } else {
+    #       el.style.display = 'none';
+    #     };
+    #   };
+    # myMap.on('baselayerchange',
+    #   function (layer) {
+    #     for (var legend in myMap.controls._controlsById) {
+    #       var el = myMap.controls.get(legend.toString())._container;
+    #       if(legend.toString() === layer.name) {
+    #         el.style.display = 'block';
+    #       } else {
+    #         el.style.display = 'none';
+    #       };
+    #     };
+    #   });
+    # }")
 
 map
 
