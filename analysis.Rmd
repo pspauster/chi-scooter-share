@@ -20,7 +20,7 @@ library(lubridate)
 
 ```
 
-
+get all my data from open data
 ```{r}
 scooter_trips <- read.socrata("https://data.cityofchicago.org/resource/2i5w-ykuw.csv")
 
@@ -31,6 +31,12 @@ equity_priority_area <- read.socrata("https://data.cityofchicago.org/resource/99
   st_union()
 
 community_areas <- read.socrata("https://data.cityofchicago.org/resource/igwz-8jzy.csv") %>% 
+  st_as_sf(wkt = "the_geom")
+
+bike_lanes <- read.socrata("https://data.cityofchicago.org/resource/hvv9-38ut.csv")%>% 
+  st_as_sf(wkt = "the_geom")
+
+streets <- read.socrata("https://data.cityofchicago.org/resource/pr57-gg9e.csv")%>% 
   st_as_sf(wkt = "the_geom")
 ```
 
@@ -47,6 +53,7 @@ scooter_trips_sum <- scooter_trips_clean %>%
 
 ```
 
+rides over the year
 ```{r}
 ggplot(scooter_trips_sum)+
   geom_line(mapping = aes(x = as.Date(date), y = trips))+
@@ -54,8 +61,7 @@ ggplot(scooter_trips_sum)+
   scale_y_continuous(label = scales::comma)
 ```
 
-
-census data
+census tracts shapes
 ```{r}
 
 tracts_sf <- tracts(
@@ -64,9 +70,8 @@ tracts_sf <- tracts(
   cb = T
 )
 
-
 ```
-Just 18% of rides in the equity zones
+creating sf
 ```{r}
 
 scooter_trips_sf <- scooter_trips %>% 
@@ -80,7 +85,7 @@ scooter_trips_equity %>% as.data.frame() %>%
   group_by(equity_zone == 1, vendor == "Lyft") %>% 
   summarize(n = n())
 ```
-
+create cloropleth data sets. going to use community area because the tract data doesn't have it available by vendor
 ```{r}
 
 scooter_trips_tract_sf <- scooter_trips_tract %>% 
@@ -102,7 +107,7 @@ scooter_communityarea <- community_areas %>%
             no_lyft_rides = sum(vendor != "Lyft"))
 
 ```
-
+test map
 ```{r}
 ggplot(scooter_tract_sum)+
   geom_sf(mapping = aes(fill = trips))
@@ -111,7 +116,6 @@ ggplot(scooter_tract_sum)+
 
 Map of scooter trips
 ```{r}
-#mapview::mapview(scooter_tract_sum)
 
 tag.map.title <- tags$style(HTML("
   .leaflet-control.map-title {
@@ -152,8 +156,6 @@ tag.map.title <- tags$style(HTML("
 title <- tags$div(
   tag.map.title, HTML("<img src = https://patrickspauster.com/images/streetsblog-logo.png><p class = 'title'>Chicago's E-Scooter Rides</p><p>Rides from May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
 )   
-
-#add subtitle for the dates
 
 pal <- colorNumeric(
   palette = "Greens",
@@ -211,31 +213,10 @@ map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FAL
       updateLegend();
       this.on('baselayerchange', e => updateLegend());
      }")
-    # %>% 
-    # htmlwidgets::onRender("
-    # function(el, x) {
-    #   var initialLegend = 'total' // Set the initial legend to be displayed by layerId
-    #   var myMap = this;
-    #   for (var legend in myMap.controls._controlsById) {
-    #     var el = myMap.controls.get(legend.toString())._container;
-    #     if(legend.toString() === initialLegend) {
-    #       el.style.display = 'block';
-    #     } else {
-    #       el.style.display = 'none';
-    #     };
-    #   };
-    # myMap.on('baselayerchange',
-    #   function (layer) {
-    #     for (var legend in myMap.controls._controlsById) {
-    #       var el = myMap.controls.get(legend.toString())._container;
-    #       if(legend.toString() === layer.name) {
-    #         el.style.display = 'block';
-    #       } else {
-    #         el.style.display = 'none';
-    #       };
-    #     };
-    #   });
-    # }")
+
+#add transparent equity zone
+#change picture
+#add popups
 
 map
 
@@ -246,7 +227,7 @@ mapview::mapshot(map, "map.html")
 
 
 Differences in vendors?
-Are some scooters higher quality because they are not distributed evenly between neighborhoods?
+Lyft scooters are all docked - need to break these out because they are all downtown and not in the equity area.
 ```{r}
 
 count(scooter_trips_equity %>% as.data.frame() %>% group_by(vendor), equity_zone) %>% 
@@ -277,8 +258,7 @@ leaflet(lyft_only) %>%
   addMarkers(lng = lyft_only$start_centroid_longitude,
              lat = lyft_only$start_centroid_latitude)
 ```
-
-trips but desitnation
+trips but desitnation - just verifying origin and destination doesn't make a big difference
 ```{r}
 
 end_scooter_trips_sf <- scooter_trips %>% 
@@ -292,11 +272,51 @@ count(end_scooter_trips_equity %>% as.data.frame(), equity_zone == 1) %>%
   janitor::adorn_percentages("col")
 
 ```
-
+Math for ridership from the pilots - pulled from the pdfs
 ```{r}
 twenty20 <- 540035/122
 twenty19 <- 664975/122
 program <- 6300
+
+```
+45% more time, 50% more distance
+```{r}
+scooter_trips_equity %>% 
+  as.data.frame() %>% 
+  group_by(equity_zone, vendor == "Lyft") %>% 
+  summarize(mean(trip_distance, na.rm = T),
+            mean(trip_duration, na.rm = T))
+```
+bike lanes and equity zone stats
+```{r}
+
+lanes_equity <- st_intersection(bike_lanes, equity_priority_area, )
+  
+lanes_no_equity <- st_difference(bike_lanes, equity_priority_area)
+  
+length_eq <- sum(st_length(lanes_equity))
+
+length_no_eq <- sum(st_length(lanes_no_equity))
+  
+length_no_eq/length_eq
+
+length_eq/(length_eq+length_no_eq)
+
+```
+streets proportion stats 
+```{r}
+
+streets_equity <- st_intersection(streets, equity_priority_area)
+  
+streets_no_equity <- st_difference(streets, equity_priority_area)
+  
+slength_eq <- sum(st_length(streets_equity))
+
+slength_no_eq <- sum(st_length(streets_no_equity))
+  
+slength_no_eq/slength_eq
+
+slength_eq/(slength_eq+slength_no_eq)
 
 ```
 
