@@ -159,7 +159,7 @@ tag.map.title <- tags$style(HTML("
 "))
 
 title <- tags$div(
-  tag.map.title, HTML("<img src = streetsblog-chicago.png><p class = 'title'>Lower E-Scooter Ridership in the <strong class = 'red'>Equity Priority Area</strong></p><p>Rides from May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
+  tag.map.title, HTML("<img src = https://pspauster.github.io/chi-scooter-share/streetsblog-chicago.png><p class = 'title'>Lower E-Scooter Ridership in the <strong class = 'red'>Equity Priority Area</strong></p><p>Rides from May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
 )   
 
 pal <- colorNumeric(
@@ -211,7 +211,8 @@ map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FAL
   #           opacity = 0) %>% 
   addControl(title,
              className = "map-title",
-             position = "topleft") %>% 
+             position = "topleft",
+             opacity = 1) %>% 
   addLayersControl(
     baseGroups = c("Total", "Dockless"),
     #overlayGroups = c("Equity"),
