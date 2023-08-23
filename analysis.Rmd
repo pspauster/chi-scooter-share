@@ -121,7 +121,7 @@ tag.map.title <- tags$style(HTML("
   .leaflet-control.map-title {
     position: fixed !important;
     padding: 10px;
-    background: rgba(255,255,255,0.8);
+    background: rgba(255,255,255,1);
     color: black;
     border-radius: 5px;
   }
@@ -211,8 +211,8 @@ map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FAL
   #           opacity = 0) %>% 
   addControl(title,
              className = "map-title",
-             position = "topleft",
-             opacity = 1) %>% 
+             position = "topleft"
+             ) %>% 
   addLayersControl(
     baseGroups = c("Total", "Dockless"),
     #overlayGroups = c("Equity"),
