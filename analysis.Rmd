@@ -135,6 +135,11 @@ tag.map.title <- tags$style(HTML("
   span {
     font-weight: 800;
     color: green;
+    
+  }
+  .red {
+    color: red;
+    font-weight: 800;
   }
   p {
     font-size: 15px;
@@ -154,7 +159,7 @@ tag.map.title <- tags$style(HTML("
 "))
 
 title <- tags$div(
-  tag.map.title, HTML("<img src = https://patrickspauster.com/images/streetsblog-logo.png><p class = 'title'>Chicago's E-Scooter Rides</p><p>Rides from May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
+  tag.map.title, HTML("<img src = streetsblog-chicago.png><p class = 'title'>Lower E-Scooter Ridership in the <strong class = 'red'>Equity Priority Area</strong></p><p>Rides from May to December 2022<br><span>Select a neighborhood</span> to view the number of rides</p>")
 )   
 
 pal <- colorNumeric(
@@ -167,17 +172,26 @@ no_lyft_pal <- colorNumeric(
 
 map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FALSE)) %>% 
   addProviderTiles(provider = "CartoDB.Positron") %>% 
-  addPolygons(color = ~pal(rides),
-              opacity = 0.9,
+  addPolygons(opacity = 0.9,
               weight = 0.5,
-              group = "Total") %>% 
+              color = ~pal(rides),
+              group = "Total",
+              popup = ~paste0("<b>",community,"</b><br>",
+                              scales::comma(rides), " total rides<br>",
+                              scales::comma(no_lyft_rides), " dockless rides"),
+              highlightOptions = highlightOptions(color = "green", weight = 1, bringToFront = T)) %>% 
   addPolygons(color = ~no_lyft_pal(no_lyft_rides),
               opacity = 0.9,
               weight = 0.5,
-              group = "Dockless") %>% 
+              group = "Dockless",
+              popup = ~paste0("<b>",community,"</b><br>",
+                              scales::comma(rides), " total rides<br>",
+                              scales::comma(no_lyft_rides), " dockless rides"),
+              highlightOptions = highlightOptions(color = "green", weight = 1, bringToFront = T)) %>% 
   addPolygons(data = equity_priority_area,
               color = "red",
-              weight = 0.5,
+              fill = F,
+              weight = 2,
               opacity = 0.5) %>% 
   addLegend("bottomright", pal = pal, values = ~rides,
     title = "Total",
@@ -189,12 +203,18 @@ map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FAL
     opacity = 1,
     group = "Dockless"
   ) %>% 
-  #addLegend("bottomleft", colors = "red", labels = "equity zone") %>% 
+  # addLegend(data = equity_priority_area,
+  #           "bottomleft",
+  #           labels = "Equity priority area",
+  #           group = "Equity",
+  #           colors = "red",
+  #           opacity = 0) %>% 
   addControl(title,
              className = "map-title",
              position = "topleft") %>% 
   addLayersControl(
     baseGroups = c("Total", "Dockless"),
+    #overlayGroups = c("Equity"),
     options = layersControlOptions(collapsed = F)
   ) %>% 
   htmlwidgets::onRender("function(el, x) {
