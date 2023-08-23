@@ -124,6 +124,7 @@ tag.map.title <- tags$style(HTML("
     background: rgba(255,255,255,1);
     color: black;
     border-radius: 5px;
+    z-index: -1000;
   }
   .title {
     padding: 0px;
@@ -172,6 +173,7 @@ no_lyft_pal <- colorNumeric(
 
 map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FALSE)) %>% 
   addProviderTiles(provider = "CartoDB.Positron") %>% 
+  setView(lat = 41.88611725746784,lng = -87.6377994899443, zoom = 10) %>% 
   addPolygons(opacity = 0.9,
               weight = 0.5,
               color = ~pal(rides),
@@ -235,9 +237,6 @@ map <- leaflet(scooter_communityarea, options = leafletOptions(zoomControl = FAL
       this.on('baselayerchange', e => updateLegend());
      }")
 
-#add transparent equity zone
-#change picture
-#add popups
 
 map
 
